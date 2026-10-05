@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بازی ضرب - سوم دبستان</title>
+<style>
+:root{--bg:#e6f3ff;--ink:#16315c;--card:#fff;--y:#ffc933;--g:#27ae72;--r:#ff5c7a;--b:#3b6cf0}
+@media (prefers-color-scheme:dark){:root{--bg:#10203d;--ink:#eaf2ff;--card:#1a2f57}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,"Segoe UI",sans-serif;padding:16px}
+.box{width:100%;max-width:440px;background:var(--card);border-radius:28px;padding:24px;box-shadow:0 8px 0 var(--b);text-align:center}
+h1{margin:0 0 6px;font-size:28px}
+p{margin:6px 0 14px;font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:12px 0}
+button{font:inherit;cursor:pointer;border:0;border-radius:16px;color:var(--ink)}
+button:focus-visible{outline:4px solid var(--y);outline-offset:2px}
+.t{background:var(--bg);padding:12px 0;font-size:20px;font-weight:700;border:3px solid transparent}
+.t.on{background:var(--y);border-color:var(--ink);color:#16315c}
+.go{background:var(--b);color:#fff;font-size:22px;font-weight:700;padding:14px 32px;margin-top:8px;box-shadow:0 4px 0 #2449b5}
+.go:active{transform:translateY(3px);box-shadow:none}
+.bar{height:12px;background:var(--bg);border-radius:8px;overflow:hidden;margin-bottom:10px}
+.bar i{display:block;height:100%;width:0;background:var(--g);transition:width .3s}
+.info{display:flex;justify-content:space-between;font-size:16px;font-weight:700}
+.q{font-size:52px;font-weight:800;margin:18px 0;direction:ltr;letter-spacing:2px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.o{background:var(--bg);font-size:30px;font-weight:700;padding:16px 0;border:3px solid transparent;direction:ltr}
+.o.ok{background:var(--g);color:#fff}
+.o.bad{background:var(--r);color:#fff}
+.msg{min-height:30px;font-size:19px;font-weight:700;margin-top:14px}
+.big{font-size:64px;margin:6px 0}
+.hide{display:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="box">
+  <section id="start">
+    <h1>بازی ضرب ✖️</h1>
+    <p>جدول ضرب کدوم عددها رو تمرین کنیم؟</p>
+    <div class="grid" id="tabs"></div>
+    <p id="hint"></p>
+    <button class="go" id="go">شروع بازی</button>
+  </section>
+
+  <section id="play" class="hide">
+    <div class="info"><span id="no"></span><span id="sc"></span></div>
+    <div class="bar"><i id="pb"></i></div>
+    <div class="q" id="q"></div>
+    <div class="opts" id="opts"></div>
+    <div class="msg" id="msg" aria-live="polite"></div>
+  </section>
+
+  <section id="end" class="hide">
+    <div class="big" id="stars"></div>
+    <h1 id="res"></h1>
+    <p id="txt"></p>
+    <button class="go" id="again">دوباره بازی کن</button>
+  </section>
+</main>
+
+<script>
+const N = 10;
+const fa = n => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[d]);
+const $ = id => document.getElementById(id);
+let picked = new Set([2, 3, 4]), qs = [], i = 0, score = 0, locked = false;
+
+// انتخاب جدول‌ها
+for (let t = 1; t <= 10; t++) {
+  const b = document.createElement("button");
+  b.className = "t" + (picked.has(t) ? " on" : "");
+  b.textContent = fa(t);
+  b.setAttribute("aria-pressed", picked.has(t));
+  b.onclick = () => {
+    picked.has(t) ? picked.delete(t) : picked.add(t);
+    b.classList.toggle("on");
+    b.setAttribute("aria-pressed", picked.has(t));
+    $("hint").textContent = picked.size ? "" : "حداقل یک عدد رو انتخاب کن.";
+  };
+  $("tabs").appendChild(b);
+}
+
+const rnd = n => Math.floor(Math.random() * n);
+
+function makeQuestions() {
+  const tabs = [...picked];
+  qs = [];
+  for (let k = 0; k < N; k++) {
+    const a = tabs[rnd(tabs.length)], b = 1 + rnd(10), ans = a * b;
+    const set = new Set([ans]);
+    while (set.size < 4) {
+      let w = rnd(2) ? a * (1 + rnd(10)) : ans + (rnd(2) ? 1 : -1) * (1 + rnd(5));
+      if (w > 0) set.add(w);
+    }
+    qs.push({ a, b, ans, opts: [...set].sort(() => Math.random() - .5) });
+  }
+}
+
+function show(id) {
+  ["start", "play", "end"].forEach(s => $(s).classList.toggle("hide", s !== id));
+}
+
+function ask() {
+  const q = qs[i];
+  locked = false;
+  $("no").textContent = "سوال " + fa(i + 1) + " از " + fa(N);
+  $("sc").textContent = "امتیاز: " + fa(score);
+  $("pb").style.width = (i / N * 100) + "%";
+  $("q").textContent = fa(q.a) + " × " + fa(q.b) + " = ؟";
+  $("msg").textContent = "";
+  $("opts").innerHTML = "";
+  q.opts.forEach(v => {
+    const b = document.createElement("button");
+    b.className = "o";
+    b.textContent = fa(v);
+    b.onclick = () => answer(b, v);
+    $("opts").appendChild(b);
+  });
+}
+
+function answer(btn, v) {
+  if (locked) return;
+  locked = true;
+  const q = qs[i];
+  if (v === q.ans) {
+    score++;
+    btn.classList.add("ok");
+    $("msg").textContent = ["آفرین! 🎉", "عالی بود! ⭐", "درسته! 👏"][rnd(3)];
+  } else {
+    btn.classList.add("bad");
+    [...$("opts").children].forEach(o => { if (o.textContent === fa(q.ans)) o.classList.add("ok"); });
+    $("msg").textContent = "جواب درست " + fa(q.ans) + " بود. دفعه بعد درست می‌شه! 💪";
+  }
+  $("sc").textContent = "امتیاز: " + fa(score);
+  setTimeout(() => { i++; i < N ? ask() : finish(); }, v === q.ans ? 900 : 1900);
+}
+
+function finish() {
+  $("pb").style.width = "100%";
+  const s = score >= 9 ? 3 : score >= 6 ? 2 : score >= 3 ? 1 : 0;
+  $("stars").textContent = s ? "⭐".repeat(s) : "🌱";
+  $("res").textContent = fa(score) + " از " + fa(N);
+  $("txt").textContent = s === 3 ? "تو قهرمان ضربی!" : s === 2 ? "خیلی خوب بود! یه بار دیگه امتحان کن." : "تمرین کن، هر بار بهتر می‌شی!";
+  show("end");
+}
+
+function start() {
+  if (!picked.size) { $("hint").textContent = "حداقل یک عدد رو انتخاب کن."; return; }
+  makeQuestions(); i = 0; score = 0; show("play"); ask();
+}
+
+$("go").onclick = start;
+$("again").onclick = () => show("start");
+</script>
+</body>
+</html>
